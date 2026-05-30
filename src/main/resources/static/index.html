@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ASNAP — X Algorithmic Backend</title>
+<title>ASNAP 鈥?X Algorithmic Backend</title>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -87,8 +87,8 @@
 <body>
 <header>
   <h1>ASNAP</h1>
-  <span class="badge">X · Algorithmic Backend</span>
-  <span class="stats" id="stats">loading…</span>
+  <span class="badge">X 路 Algorithmic Backend</span>
+  <span class="stats" id="stats">loading鈥?/span>
 </header>
 <main>
   <aside>
@@ -120,16 +120,58 @@
   </section>
 
   <aside class="right">
-    <h2>Top Influencers (PageRank)</h2>
-    <div id="influencers" class="panel"><div class="empty">loading…</div></div>
+    <div class="row" style="margin-bottom: 8px; flex-wrap: wrap;">
+      <span class="tab active" id="tab-influencers" onclick="switchTab('influencers')">Inf.</span>
+      <span class="tab" id="tab-trending" onclick="switchTab('trending')">Trend</span>
+      <span class="tab" id="tab-foryou" onclick="switchTab('foryou')">ForYou</span>
+      <span class="tab" id="tab-bots" onclick="switchTab('bots')">Bots</span>
+      <span class="tab" id="tab-ads" onclick="switchTab('ads')">Ads</span>
+      <span class="tab" id="tab-louvain" onclick="switchTab('louvain')">Louv.</span>
+    </div>
 
-    <h2>Top Tweets (PageRank)</h2>
-    <div id="topTweets" class="panel"><div class="empty">loading…</div></div>
+    <div id="panel-influencers" style="display: block;">
+      <h2>Top Influencers (PageRank)</h2>
+      <div id="influencers" class="panel"><div class="empty">loading...</div></div>
+      <h2>Top Tweets (PageRank)</h2>
+      <div id="topTweets" class="panel"><div class="empty">loading...</div></div>
+      <h2>Communities</h2>
+      <div id="communities" class="panel"><div class="empty">loading...</div></div>
+    </div>
 
-    <h2>Communities</h2>
-    <div id="communities" class="panel"><div class="empty">loading…</div></div>
+    <div id="panel-trending" style="display: none;">
+      <h2>Trending Content</h2>
+      <div id="trendingTweets" class="panel"><div class="empty">loading...</div></div>
+    </div>
+
+    <div id="panel-foryou" style="display: none;">
+      <h2>Personalized Feed</h2>
+      <label>User</label>
+      <select id="foryouUser"></select>
+      <button onclick="loadForYou()">Load Feed</button>
+      <div id="foryouFeed" class="panel"><div class="empty">select a user</div></div>
+    </div>
+
+    <div id="panel-bots" style="display: none;">
+      <h2>Bot Detection</h2>
+      <div id="botList" class="panel"><div class="empty">loading...</div></div>
+    </div>
+
+    <div id="panel-ads" style="display: none;">
+      <h2>Ad Targeting</h2>
+      <label>Advertiser</label>
+      <select id="advertiser"></select>
+      <label>Depth</label>
+      <input id="adDepth" type="number" min="1" max="5" value="3">
+      <button onclick="loadAdTargets()">Find Targets</button>
+      <div id="adResults" class="panel"><div class="empty">select advertiser</div></div>
+    </div>
+
+    <div id="panel-louvain" style="display: none;">
+      <h2>Louvain Communities</h2>
+      <button onclick="loadLouvain()">Run Louvain</button>
+      <div id="louvainResults" class="panel"><div class="empty">click to run</div></div>
+    </div>
   </aside>
-</main>
 
 <script>
 const api = (path) => fetch(path).then(r => r.json());
@@ -148,10 +190,10 @@ async function init() {
   ]);
 
   document.getElementById('stats').textContent =
-    `${stats.nodes} nodes · ${stats.edges} edges · ${stats.communities} communities`;
+    `${stats.nodes} nodes 路 ${stats.edges} edges 路 ${stats.communities} communities`;
 
   const sel = (id) => document.getElementById(id);
-  for (const id of ['fromUser', 'toUser', 'centerUser']) {
+  for (const id of ['fromUser', 'toUser', 'centerUser', 'foryouUser', 'advertiser']) {
     const s = sel(id);
     s.innerHTML = '';
     users.forEach(u => {
@@ -200,7 +242,7 @@ function renderTweets(list) {
     const div = document.createElement('div');
     div.className = 'tweet';
     div.innerHTML = `
-      <div class="author">tweet #${t.id} · ${t.likes.toLocaleString()} likes</div>
+      <div class="author">tweet #${t.id} 路 ${t.likes.toLocaleString()} likes</div>
       <div>${escapeHtml(t.content)}</div>
       <div class="meta"><span class="pill">PR ${t.score.toFixed(4)}</span></div>
     `;
@@ -233,10 +275,10 @@ async function findPath(kind) {
   }
   el.className = 'path-result';
   const usernames = data.usernames || [];
-  const chain = usernames.map(n => `<b>@${n}</b>`).join('<span class="arrow">→</span>');
+  const chain = usernames.map(n => `<b>@${n}</b>`).join('<span class="arrow">鈫?/span>');
   const meta = kind === 'bfs'
-    ? `<div class="meta">${data.hops} hops · BFS</div>`
-    : `<div class="meta">cost ${data.totalCost.toFixed(4)} · Dijkstra</div>`;
+    ? `<div class="meta">${data.hops} hops 路 BFS</div>`
+    : `<div class="meta">cost ${data.totalCost.toFixed(4)} 路 Dijkstra</div>`;
   el.innerHTML = chain + meta;
 
   highlightedPath = data.path;
@@ -250,7 +292,7 @@ async function loadSubgraph() {
 
   const nodes = data.nodes.map(n => ({
     id: n.id,
-    label: n.type === 'user' ? '@' + n.label : '📰',
+    label: n.type === 'user' ? '@' + n.label : '馃摪',
     title: n.type === 'user'
       ? `@${n.label}\nfollowers: ${(n.followers || 0).toLocaleString()}\nPR: ${n.score.toFixed(4)}`
       : `${n.content || ''}\nlikes: ${n.likes}\nPR: ${n.score.toFixed(4)}`,
@@ -375,3 +417,5 @@ init();
 </script>
 </body>
 </html>
+
+
