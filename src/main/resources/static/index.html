@@ -182,7 +182,7 @@
       <label>Recovery Steps</label>
       <input id="virusRecovery" type="number" min="1" max="10" value="3">
             <label>Speed</label>
-      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;8s&apos;,&apos;6s&apos;,&apos;4s&apos;,&apos;3s&apos;,&apos;2s&apos;][this.value-1]">
+      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;5s&apos;,&apos;4s&apos;,&apos;3s&apos;,&apos;2s&apos;,&apos;1s&apos;][this.value-1]">
       <span id="spdVal" style="color:#1D9BF0;">1s</span>
       <div class="row">
         <button onclick="runVirusSim()">Run</button>
@@ -448,546 +448,91 @@ async function runVirusSim() {
   const recovery = document.getElementById('virusRecovery').value;
   const status = document.getElementById('virusStatus');
 
-  status.innerHTML = '<div class="empty">running simulation...</div>';
-  const data = await api(`/api/virus/simulate?patientZero=${patient}&infectivity=${infectivity}&recoverySteps=${recovery}&maxSteps=20`);
+  status.innerHTML = '';
+  // Fetch simulation data
+  const data = await api('/api/virus/simulate?patientZero=' + patient + '&infectivity=' + infectivity + '&recoverySteps=' + recovery + '&maxSteps=25');
   virusStepData = data.steps;
   virusCurrentStep = 0;
 
-  status.innerHTML = `<div class="item"><div class="name">Total: ${data.totalUsers} users</div><div class="meta">Max infected: ${data.maxInfected} | Recovered: ${data.finalRecovered}</div></div>`;
-
-  // Build graph for visualization (user nodes only)
+  // Build the graph for visualization first
   await loadVirusGraph(patient);
 
-  // Start animation
-    const speeds = [8000, 6000, 4000, 3000, 2000];
+  // Show header
+  status.innerHTML = '<div class="item"><div class="name">Patient Zero: user #' + patient + '</div><div class="meta">Total: ' + data.totalUsers + ' users | Max infected: ' + data.maxInfected + ' | Recovered: ' + data.finalRecovered + '</div></div>';
+
+  // Read speed from slider and start animation
+  const speeds = [5000, 4000, 3000, 2000, 1000];
   const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
-    // Show final state instantly - no animation
-    const lastStep = virusStepData[virusStepData.length - 1];
-    applyVirusColors(lastStep.states);
 
-    let summary = '';
-    virusStepData.forEach(step => {
-      summary += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | ' + step.totalInfected + ' infected</div></div>';
-    });
-    summary += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
-    status.innerHTML += summary; html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>ASNAP - X Algorithmic Backend</title>
-<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
-<style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    background: #15202B;
-    color: #E7E9EA;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  header {
-    padding: 14px 24px;
-    background: #000;
-    border-bottom: 1px solid #2F3336;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  header h1 { margin: 0; font-size: 20px; letter-spacing: 0.3px; }
-  header .badge {
-    background: #1D9BF0; color: white; padding: 2px 8px; border-radius: 9999px;
-    font-size: 11px; font-weight: 700;
-  }
-  header .stats { margin-left: auto; font-size: 13px; color: #8B98A5; }
-  main { flex: 1; display: grid; grid-template-columns: 320px 1fr 320px; min-height: 0; overflow: hidden; }
-  main > section { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
-  aside {
-    background: #192734;
-    border-right: 1px solid #2F3336;
-    overflow-y: auto;
-    padding: 16px;
-  }
-  aside.right { border-right: none; border-left: 1px solid #2F3336; }
-  h2 { font-size: 14px; text-transform: uppercase; color: #8B98A5; margin: 18px 0 8px; letter-spacing: 0.6px; }
-  h2:first-child { margin-top: 0; }
-  .panel { background: #15202B; border: 1px solid #2F3336; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-  label { font-size: 12px; color: #8B98A5; display: block; margin-bottom: 4px; }
-  select, input, button {
-    width: 100%; padding: 8px 10px; border-radius: 8px;
-    background: #15202B; color: #E7E9EA; border: 1px solid #2F3336;
-    font-size: 13px; margin-bottom: 8px;
-  }
-  button { background: #1D9BF0; border: none; color: white; font-weight: 700; cursor: pointer; }
-  button:hover { background: #1A8CD8; }
-  button.secondary { background: #2F3336; }
-  #network { background: #15202B; }
-  .row { display: flex; gap: 8px; align-items: center; }
-  .row > * { margin-bottom: 0; }
-  .item {
-    display: flex; justify-content: space-between; padding: 8px 4px;
-    border-bottom: 1px solid #2F3336; font-size: 13px;
-  }
-  .item:last-child { border-bottom: none; }
-  .item .name { font-weight: 600; }
-  .item .meta { color: #8B98A5; font-size: 11px; }
-  .item .score { color: #1D9BF0; font-variant-numeric: tabular-nums; }
-  .pill { display: inline-block; background: #2F3336; padding: 2px 8px; border-radius: 9999px; font-size: 11px; }
-  .path-result {
-    background: #15202B; padding: 10px; border-radius: 8px; font-size: 13px;
-    line-height: 1.7;
-  }
-  .arrow { color: #1D9BF0; padding: 0 6px; }
-  .empty { color: #8B98A5; font-size: 12px; text-align: center; padding: 20px 0; }
-  .tweet {
-    border: 1px solid #2F3336; border-radius: 12px; padding: 10px;
-    margin-bottom: 8px; font-size: 13px; line-height: 1.4;
-  }
-  .tweet .author { font-weight: 700; color: #1D9BF0; }
-  .tab {
-    padding: 6px 12px; border-radius: 9999px; border: 1px solid #2F3336;
-    background: #15202B; color: #8B98A5; cursor: pointer; font-size: 11px; font-weight: 600;
-  }
-  .tab.active { background: #1D9BF0; border-color: #1D9BF0; color: white; }
-  .bot-item { padding: 8px 4px; border-bottom: 1px solid #2F3336; font-size: 12px; }
-  .bot-item .risk { display: inline-block; padding: 2px 6px; border-radius: 9999px; font-size: 10px; margin-left: 6px; }
-  .risk.high { background: #F4212E; color: white; }
-  .risk.low { background: #00BA7C; color: white; }
-</style>
-</head>
-<body>
-<header>
-  <h1>ASNAP</h1>
-  <span class="badge">X · Algorithmic Backend</span>
-  <span class="stats" id="stats">loading.../span>
-</header>
-<main>
-  <aside>
-    <h2>Connection Finder</h2>
-    <div class="panel">
-      <label>From user</label>
-      <select id="fromUser"></select>
-      <label>To user</label>
-      <select id="toUser"></select>
-      <div class="row">
-        <button onclick="findPath('bfs')">BFS path</button>
-        <button class="secondary" onclick="findPath('dijkstra')">Weighted</button>
-      </div>
-      <div id="pathResult" class="path-result empty">no query yet</div>
-    </div>
-
-    <h2>Subgraph view</h2>
-    <div class="panel">
-      <label>Center user</label>
-      <select id="centerUser"></select>
-      <label>Depth (hops)</label>
-      <input id="depth" type="number" min="1" max="4" value="2">
-      <button onclick="loadSubgraph()">Render</button>
-    </div>
-  </aside>
-
-  <section>
-    <div id="network" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0;"></div>
-  </section>
-
-  <aside class="right">
-    <div class="row" style="margin-bottom: 8px; flex-wrap: wrap;">
-      <span class="tab active" id="tab-influencers" onclick="switchTab('influencers')">Inf.</span>
-      <span class="tab" id="tab-trending" onclick="switchTab('trending')">Trend</span>
-      <span class="tab" id="tab-foryou" onclick="switchTab('foryou')">ForYou</span>
-      <span class="tab" id="tab-bots" onclick="switchTab('bots')">Bots</span>
-      <span class="tab" id="tab-ads" onclick="switchTab('ads')">Ads</span>
-      <span class="tab" id="tab-louvain" onclick="switchTab('louvain')">Louv.</span>
-      <span class="tab" id="tab-virus" onclick="switchTab('virus')">Virus</span>
-    </div>
-
-    <div id="panel-influencers" style="display: block;">
-      <h2>Top Influencers (PageRank)</h2>
-      <div id="influencers" class="panel"><div class="empty">loading...</div></div>
-      <h2>Top Tweets (PageRank)</h2>
-      <div id="topTweets" class="panel"><div class="empty">loading...</div></div>
-      <h2>Communities</h2>
-      <div id="communities" class="panel"><div class="empty">loading...</div></div>
-    </div>
-
-    <div id="panel-trending" style="display: none;">
-      <h2>Trending Content</h2>
-      <div id="trendingTweets" class="panel"><div class="empty">loading...</div></div>
-    </div>
-
-    <div id="panel-foryou" style="display: none;">
-      <h2>Personalized Feed</h2>
-      <label>User</label>
-      <select id="foryouUser"></select>
-      <button onclick="loadForYou()">Load Feed</button>
-      <div id="foryouFeed" class="panel"><div class="empty">select a user</div></div>
-    </div>
-
-    <div id="panel-bots" style="display: none;">
-      <h2>Bot Detection</h2>
-      <div id="botList" class="panel"><div class="empty">loading...</div></div>
-    </div>
-
-    <div id="panel-ads" style="display: none;">
-      <h2>Ad Targeting</h2>
-      <label>Advertiser</label>
-      <select id="advertiser"></select>
-      <label>Depth</label>
-      <input id="adDepth" type="number" min="1" max="5" value="3">
-      <button onclick="loadAdTargets()">Find Targets</button>
-      <div id="adResults" class="panel"><div class="empty">select advertiser</div></div>
-    </div>
-
-    <div id="panel-louvain" style="display: none;">
-      <h2>Louvain Communities</h2>
-      <button onclick="loadLouvain()">Run Louvain</button>
-      <div id="louvainResults" class="panel"><div class="empty">click to run</div></div>
-    </div>
-    <div id="panel-virus" style="display: none;">
-      <h2>Virus Propagation (SIR Model)</h2>
-      <label>Patient Zero</label>
-      <select id="virusPatient"></select>
-      <label>Infectivity</label>
-      <input id="virusInfectivity" type="range" min="0.1" max="0.9" step="0.1" value="0.3" oninput="document.getElementById('infVal').textContent=this.value">
-      <span id="infVal" style="color:#1D9BF0;">0.3</span>
-      <label>Recovery Steps</label>
-      <input id="virusRecovery" type="number" min="1" max="10" value="3">
-            <label>Speed</label>
-      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;8s&apos;,&apos;6s&apos;,&apos;4s&apos;,&apos;3s&apos;,&apos;2s&apos;][this.value-1]">
-      <span id="spdVal" style="color:#1D9BF0;">1s</span>
-      <div class="row">
-        <button onclick="runVirusSim()">Run</button>
-        <button class="secondary" onclick="stopVirusAnim()">Stop</button>
-      </div>
-      <div id="virusStatus" class="panel" style="min-height: 40px;"><div class="empty">click Run to start</div></div>
-      <div class="row" style="margin-top:4px">
-        <span class="pill" style="background:#00BA7C;color:white">S</span>
-        <span class="pill" style="background:#F4212E;color:white">I</span>
-        <span class="pill" style="background:#8B98A5;color:white">R</span>
-      </div>
-    </div>
-  </aside>
-
-<script>
-const api = (path) => fetch(path).then(r => r.json());
-let network = null;
-let highlightedPath = [];
-
-async function init() {
-  const [stats, users, influencers, tweets, communities, trendingT, bots] = await Promise.all([
-    api('/api/stats'),
-    api('/api/users'),
-    api('/api/influence/top?limit=10'),
-    api('/api/feed/top?limit=5'),
-    api('/api/communities'),
-    api('/api/trending/tweets?limit=10'),
-    api('/api/bots')
-  ]);
-
-  document.getElementById('stats').textContent =
-    `${stats.nodes} nodes · ${stats.edges} edges · ${stats.communities} communities`;
-
-  const sel = (id) => document.getElementById(id);
-  for (const id of ['fromUser', 'toUser', 'centerUser', 'foryouUser', 'advertiser', 'virusPatient']) {
-    const s = sel(id);
-    s.innerHTML = '';
-    users.forEach(u => {
-      const opt = document.createElement('option');
-      opt.value = u.id;
-      opt.textContent = `@${u.username} (${u.followersCount.toLocaleString()})`;
-      s.appendChild(opt);
-    });
-  }
-  sel('fromUser').selectedIndex = 0;
-  sel('toUser').selectedIndex = Math.min(5, users.length - 1);
-  sel('centerUser').selectedIndex = 0;
-  sel('advertiser').selectedIndex = 0;
-
-  renderInfluencers(influencers);
-  renderTweets(tweets);
-  renderCommunities(communities);
-  renderTrending(trendingT);
-  renderBots(bots);
-
-  loadSubgraph();
-}
-
-function renderInfluencers(list) {
-  const el = document.getElementById('influencers');
-  el.innerHTML = '';
-  list.forEach((u, i) => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = `
-      <div>
-        <div class="name">#${i + 1} @${u.username}</div>
-        <div class="meta">id ${u.id}</div>
-      </div>
-      <div class="score">${u.score.toFixed(4)}</div>
-    `;
-    el.appendChild(div);
-  });
-}
-
-function renderTweets(list) {
-  const el = document.getElementById('topTweets');
-  el.innerHTML = '';
-  if (list.length === 0) { el.innerHTML = '<div class="empty">no tweets</div>'; return; }
-  list.forEach(t => {
-    const div = document.createElement('div');
-    div.className = 'tweet';
-    div.innerHTML = `
-      <div class="author">tweet #${t.id} · ${t.likes.toLocaleString()} likes</div>
-      <div>${escapeHtml(t.content)}</div>
-      <div class="meta"><span class="pill">PR ${t.score.toFixed(4)}</span></div>
-    `;
-    el.appendChild(div);
-  });
-}
-
-function renderCommunities(c) {
-  const el = document.getElementById('communities');
-  el.innerHTML = `<div class="item"><div class="name">${c.count} communities</div></div>`;
-  c.communities.slice(0, 5).forEach((com, i) => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = `<div><div class="name">Cluster ${i + 1}</div><div class="meta">root id ${com.rootId}</div></div><div class="score">${com.members.length} users</div>`;
-    el.appendChild(div);
-  });
-}
-
-async function findPath(kind) {
-  const from = document.getElementById('fromUser').value;
-  const to = document.getElementById('toUser').value;
-  const data = await api(`/api/path/${kind}?from=${from}&to=${to}`);
-  const el = document.getElementById('pathResult');
-  if (!data.path || data.path.length === 0) {
-    el.className = 'path-result empty';
-    el.textContent = 'No path found';
-    highlightedPath = [];
-    if (network) network.unselectAll();
-    return;
-  }
-  el.className = 'path-result';
-  const usernames = data.usernames || [];
-  const chain = usernames.map(n => `<b>@${n}</b>`).join('<span class="arrow">鈫?/span>');
-  const meta = kind === 'bfs'
-    ? `<div class="meta">${data.hops} hops · BFS</div>`
-    : `<div class="meta">cost ${data.totalCost.toFixed(4)} · Dijkstra</div>`;
-  el.innerHTML = chain + meta;
-
-  highlightedPath = data.path;
-  highlightInGraph(data.path);
-}
-
-async function loadSubgraph() {
-  const center = document.getElementById('centerUser').value;
-  const depth = document.getElementById('depth').value;
-  const data = await api(`/api/graph?center=${center}&depth=${depth}`);
-
-  const nodes = data.nodes.map(n => ({
-    id: n.id,
-    label: n.type === 'user' ? '@' + n.label : '🐦',
-    title: n.type === 'user'
-      ? `@${n.label}\nfollowers: ${(n.followers || 0).toLocaleString()}\nPR: ${n.score.toFixed(4)}`
-      : `${n.content || ''}\nlikes: ${n.likes}\nPR: ${n.score.toFixed(4)}`,
-    color: n.type === 'user' ? { background: '#1D9BF0', border: '#1A8CD8' } : { background: '#F4212E', border: '#C81F2A' },
-    font: { color: 'white', size: 13 },
-    shape: 'dot',
-    size: 12 + Math.min(28, Math.sqrt(n.score * 2000))
-  }));
-
-  const edges = data.edges.map(e => ({
-    from: e.source,
-    to: e.target,
-    arrows: 'to',
-    color: edgeColor(e.type),
-    width: 1 + Math.min(3, e.weight),
-    smooth: { type: 'curvedCW', roundness: 0.15 }
-  }));
-
-  const container = document.getElementById('network');
-  network = new vis.Network(container, { nodes, edges }, {
-    physics: false,
-    layout: { improvedLayout: true, randomSeed: 42 },
-    interaction: { hover: true, tooltipDelay: 100, dragView: true, zoomView: true }
-  });
-  network.fit();
-  if (highlightedPath.length > 0) highlightInGraph(highlightedPath);
-}
-
-function edgeColor(type) {
-  switch (type) {
-    case 'FOLLOW': return { color: '#536471', highlight: '#1D9BF0' };
-    case 'LIKE': return { color: '#F91880', highlight: '#F91880' };
-    case 'RETWEET': return { color: '#00BA7C', highlight: '#00BA7C' };
-    case 'AUTHORED': return { color: '#8B98A5', highlight: '#8B98A5' };
-    default: return { color: '#536471' };
-  }
-}
-
-function highlightInGraph(path) {
-  if (!network) return;
-  try {
-    const valid = path.filter(id => network.body.nodes[id] !== undefined);
-    network.unselectAll();
-    if (valid.length > 0) network.selectNodes(valid);
-  } catch (e) {
-    console.warn('highlight skipped:', e.message);
-  }
-}
-
-function escapeHtml(s) {
-  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-}
-
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  ['influencers','trending','foryou','bots','ads','louvain','virus'].forEach(n => {
-    document.getElementById('panel-' + n).style.display = n === name ? '' : 'none';
-  });
-}
-function renderTrending(items) {
-  const el = document.getElementById('trendingTweets');
-  el.innerHTML = '';
-  if (items.length === 0) { el.innerHTML = '<div class="empty">no trending items</div>'; return; }
-  items.forEach(t => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = '<div><div class="name">' + escapeHtml(t.label).substring(0,60) + '</div><div class="meta">z=' + t.zScore.toFixed(2) + '</div></div><div class="score">' + t.velocity.toFixed(1) + '</div>';
-    el.appendChild(div);
-  });
-}
-function renderBots(items) {
-  const el = document.getElementById('botList');
-  el.innerHTML = '';
-  items.forEach(b => {
-    const div = document.createElement('div');
-    div.className = 'bot-item';
-    const cls = b.likelyBot ? 'high' : 'low';
-    div.innerHTML = '<span class="name">@' + b.username + '</span><span class="risk ' + cls + '">' + (b.likelyBot ? 'BOT' : 'OK') + '</span><div class="meta">' + b.reason + '</div>';
-    el.appendChild(div);
-  });
-}
-async function loadForYou() {
-  const userId = document.getElementById('foryouUser').value;
-  const data = await api('/api/feed/personalized?userId=' + userId + '&limit=10');
-  const el = document.getElementById('foryouFeed');
-  el.innerHTML = '';
-  data.forEach(t => {
-    const div = document.createElement('div');
-    div.className = 'tweet';
-    div.innerHTML = '<div class="author">tweet #' + t.id + '</div><div>' + escapeHtml(t.content) + '</div><div class="meta"><span class="pill">score ' + t.score.toFixed(4) + '</span></div>';
-    el.appendChild(div);
-  });
-}
-async function loadAdTargets() {
-  const advertiserId = document.getElementById('advertiser').value;
-  const depth = document.getElementById('adDepth').value;
-  const data = await api('/api/ad/targets?advertiserId=' + advertiserId + '&depth=' + depth + '&limit=10');
-  const el = document.getElementById('adResults');
-  el.innerHTML = '';
-  data.forEach(t => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = '<div><div class="name">@' + t.username + '</div><div class="meta">dist=' + t.distance + ' community=' + t.communityId + '</div></div><div class="score">' + t.relevanceScore.toFixed(4) + '</div>';
-    el.appendChild(div);
-  });
-}
-async function loadLouvain() {
-  const el = document.getElementById('louvainResults');
-  el.innerHTML = '<div class="empty">running Louvain...</div>';
-  const data = await api('/api/communities/louvain');
-  el.innerHTML = '<div class="item"><div class="name">' + data.count + ' communities</div><div class="meta">modularity=' + data.modularity.toFixed(4) + ' iterations=' + data.iterations + '</div></div>';
-  data.communities.slice(0,8).forEach(c => {
-    const div = document.createElement('div');
-    div.className = 'item';
-    div.innerHTML = '<div><div class="name">Cluster ' + c.rootId + '</div></div><div class="score">' + c.size + ' users</div>';
-    el.appendChild(div);
-  });
-}
-
-let virusAnimTimer = null;
-let virusStepData = [];
-let virusCurrentStep = 0;
-
-async function runVirusSim() {
-  if (virusAnimTimer) clearInterval(virusAnimTimer);
-  const patient = document.getElementById('virusPatient').value;
-  const infectivity = document.getElementById('virusInfectivity').value;
-  const recovery = document.getElementById('virusRecovery').value;
-  const status = document.getElementById('virusStatus');
-
-  status.innerHTML = '<div class="empty">running simulation...</div>';
-  const data = await api(`/api/virus/simulate?patientZero=${patient}&infectivity=${infectivity}&recoverySteps=${recovery}&maxSteps=20`);
-  virusStepData = data.steps;
-  virusCurrentStep = 0;
-
-  status.innerHTML = `<div class="item"><div class="name">Total: ${data.totalUsers} users</div><div class="meta">Max infected: ${data.maxInfected} | Recovered: ${data.finalRecovered}</div></div>`;
-
-  // Build graph for visualization (user nodes only)
-  await loadVirusGraph(patient);
-
-  // Start animation
-    const speeds = [8000, 6000, 4000, 3000, 2000];
-  const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
-  virusAnimTimer = setInterval(() => {
+  virusAnimTimer = setInterval(function() {
     if (virusCurrentStep >= virusStepData.length) {
       clearInterval(virusAnimTimer);
       virusAnimTimer = null;
-      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Simulation complete</div></div>';
+      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Simulation Complete</div></div>';
       return;
     }
-    const step = virusStepData[virusCurrentStep];
+    var step = virusStepData[virusCurrentStep];
     applyVirusColors(step.states);
-    status.innerHTML += `<div class="item"><div class="name">Step ${step.step}</div><div class="meta">+${step.newlyInfected.length} new | ${step.totalInfected} infected</div></div>`;
+    status.innerHTML += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new infected | total: ' + step.totalInfected + '</div></div>';
     virusCurrentStep++;
-  }, 1500);
+  }, speed);
 }
 
 function stopVirusAnim() {
   if (virusAnimTimer) {
     clearInterval(virusAnimTimer);
     virusAnimTimer = null;
-    document.getElementById('virusStatus').innerHTML += '<div class="item"><div class="name" style="color:#F4212E;">Stopped</div></div>';
+    document.getElementById('virusStatus').innerHTML += '<div class="item"><div class="name" style="color:#F4212E;">Animation Stopped</div></div>';
   }
 }
 
 async function loadVirusGraph(centerId) {
-  const data = await api(`/api/graph?center=${centerId}&depth=3`);
-  const nodes = data.nodes.filter(n => n.type === 'user').map(n => ({
-    id: n.id,
-    label: '@' + n.label,
-    title: `@${n.label}`,
-    color: { background: '#00BA7C', border: '#00995C' },
-    font: { color: 'white', size: 13 },
-    shape: 'dot',
-    size: 12
-  }));
-
-  const edges = data.edges.filter(e => nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target))
-    .map(e => ({ from: e.source, to: e.target, arrows: 'to', color: { color: '#536471', highlight: '#1D9BF0' }, width: 1 }));
-
-  const container = document.getElementById('network');
-  network = new vis.Network(container, { nodes, edges }, {
-    physics: { solver: 'barnesHut', stabilization: { iterations: 100 } },
+  var data = await api('/api/graph?center=' + centerId + '&depth=3');
+  var nodes = [];
+  for (var i = 0; i < data.nodes.length; i++) {
+    var n = data.nodes[i];
+    if (n.type === 'user') {
+      nodes.push({
+        id: n.id,
+        label: '@' + n.label,
+        title: '@' + n.label,
+        color: { background: '#00BA7C', border: '#00995C' },
+        font: { color: 'white', size: 14 },
+        shape: 'dot',
+        size: 14
+      });
+    }
+  }
+  var edges = [];
+  for (var i = 0; i < data.edges.length; i++) {
+    var e = data.edges[i];
+    edges.push({ from: e.source, to: e.target, arrows: 'to', color: { color: '#333', highlight: '#1D9BF0' }, width: 1 });
+  }
+  var container = document.getElementById('network');
+  network = new vis.Network(container, { nodes: nodes, edges: edges }, {
+    physics: { solver: 'barnesHut', stabilization: { iterations: 200 } },
     interaction: { hover: true, dragView: true, zoomView: true }
   });
+  network.fit();
 }
 
 function applyVirusColors(states) {
   if (!network) return;
-  const allNodes = network.body.data.nodes;
-  const updates = [];
-  for (const n of allNodes.get()) {
-    const state = states[String(n.id)] || states[n.id];
-    let color;
-    if (state === 'INFECTED') color = { background: '#F4212E', border: '#C81F2A' };
-    else if (state === 'RECOVERED') color = { background: '#8B98A5', border: '#6B7B8A' };
-    else color = { background: '#00BA7C', border: '#00995C' };
-    updates.push({ id: n.id, color: color });
+  var allNodes = network.body.data.nodes;
+  var updates = [];
+  var ids = allNodes.getIds();
+  for (var i = 0; i < ids.length; i++) {
+    var id = ids[i];
+    var state = states[String(id)] || states[id];
+    var color;
+    if (state === 'INFECTED') {
+      color = { background: '#F4212E', border: '#C81F2A' };
+    } else if (state === 'RECOVERED') {
+      color = { background: '#8B98A5', border: '#6B7B8A' };
+    } else {
+      color = { background: '#00BA7C', border: '#00995C' };
+    }
+    updates.push({ id: id, color: color });
   }
   allNodes.update(updates);
 }
