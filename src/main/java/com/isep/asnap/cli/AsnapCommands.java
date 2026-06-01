@@ -16,6 +16,7 @@ public class AsnapCommands {
     private final TrendDetector trendDetector;
     private final BotDetector botDetector;
     private final AdTargeter adTargeter;
+    private final VirusPropagator virusPropagator;
 
     public AsnapCommands(ConnectionFinder connectionFinder,
                          FeedRanker feedRanker,
@@ -24,7 +25,8 @@ public class AsnapCommands {
                          LouvainCommunityDetector louvainDetector,
                          TrendDetector trendDetector,
                          BotDetector botDetector,
-                         AdTargeter adTargeter) {
+                         AdTargeter adTargeter,
+                         VirusPropagator virusPropagator) {
         this.connectionFinder = connectionFinder;
         this.feedRanker = feedRanker;
         this.personalizedFeedRanker = personalizedFeedRanker;
@@ -33,6 +35,7 @@ public class AsnapCommands {
         this.trendDetector = trendDetector;
         this.botDetector = botDetector;
         this.adTargeter = adTargeter;
+        this.virusPropagator = virusPropagator;
     }
 
     @ShellMethod(key = "path-bfs", value = "Find shortest follow path via BFS")
@@ -141,4 +144,21 @@ public class AsnapCommands {
         }
         return sb.toString();
     }
-}
+
+    @ShellMethod(key = "virus", value = "Simulate virus propagation through the network")
+    public String virusSim(@ShellOption long patientZero,
+                           @ShellOption(defaultValue = "0.3") double infectivity,
+                           @ShellOption(defaultValue = "3") int recovery,
+                           @ShellOption(defaultValue = "15") int maxSteps) {
+        var result = virusPropagator.simulate(patientZero, infectivity, recovery, maxSteps);
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Virus simulation (patient=%d, infectivity=%.2f, recovery=%d steps)%n%n",
+                patientZero, infectivity, recovery));
+        sb.append(String.format("Total users: %d | Max infected: %d | Final recovered: %d%n%n",
+                result.totalUsers(), result.maxInfected(), result.finalRecovered()));
+        for (var step : result.steps()) {
+            sb.append(String.format("  Step %2d: +%2d new  | %2d currently infected%n",
+                    step.step(), step.newlyInfected().size(), step.totalInfected()));
+        }
+        return sb.toString();
+    }}

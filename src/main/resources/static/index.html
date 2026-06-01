@@ -1,8 +1,8 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ASNAP 鈥?X Algorithmic Backend</title>
+<title>ASNAP …X Algorithmic Backend</title>
 <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
 <style>
   * { box-sizing: border-box; }
@@ -87,8 +87,8 @@
 <body>
 <header>
   <h1>ASNAP</h1>
-  <span class="badge">X 路 Algorithmic Backend</span>
-  <span class="stats" id="stats">loading鈥?/span>
+  <span class="badge">X · Algorithmic Backend</span>
+  <span class="stats" id="stats">loading…/span>
 </header>
 <main>
   <aside>
@@ -171,6 +171,24 @@
       <button onclick="loadLouvain()">Run Louvain</button>
       <div id="louvainResults" class="panel"><div class="empty">click to run</div></div>
     </div>
+    <div id="panel-virus" style="display: none;">
+      <h2>Virus Propagation (SIR Model)</h2>
+      <label>Patient Zero</label>
+      <select id="virusPatient"></select>
+      <label>Infectivity</label>
+      <input id="virusInfectivity" type="range" min="0.1" max="0.9" step="0.1" value="0.3" oninput="document.getElementById('infVal').textContent=this.value">
+      <span id="infVal" style="color:#1D9BF0;">0.3</span>
+      <label>Recovery Steps</label>
+      <input id="virusRecovery" type="number" min="1" max="10" value="3">
+      <button onclick="runVirusSim()">Run Simulation</button>
+      <button class="secondary" onclick="stopVirusAnim()">Stop</button>
+      <div id="virusStatus" class="panel" style="min-height: 40px;"><div class="empty">click Run to start</div></div>
+      <div class="row" style="margin-top:4px">
+        <span class="pill" style="background:#00BA7C;color:white">S</span>
+        <span class="pill" style="background:#F4212E;color:white">I</span>
+        <span class="pill" style="background:#8B98A5;color:white">R</span>
+      </div>
+    </div>
   </aside>
 
 <script>
@@ -190,10 +208,10 @@ async function init() {
   ]);
 
   document.getElementById('stats').textContent =
-    `${stats.nodes} nodes 路 ${stats.edges} edges 路 ${stats.communities} communities`;
+    `${stats.nodes} nodes · ${stats.edges} edges · ${stats.communities} communities`;
 
   const sel = (id) => document.getElementById(id);
-  for (const id of ['fromUser', 'toUser', 'centerUser', 'foryouUser', 'advertiser']) {
+  for (const id of ['fromUser', 'toUser', 'centerUser', 'foryouUser', 'advertiser', 'virusPatient']) {
     const s = sel(id);
     s.innerHTML = '';
     users.forEach(u => {
@@ -242,7 +260,7 @@ function renderTweets(list) {
     const div = document.createElement('div');
     div.className = 'tweet';
     div.innerHTML = `
-      <div class="author">tweet #${t.id} 路 ${t.likes.toLocaleString()} likes</div>
+      <div class="author">tweet #${t.id} · ${t.likes.toLocaleString()} likes</div>
       <div>${escapeHtml(t.content)}</div>
       <div class="meta"><span class="pill">PR ${t.score.toFixed(4)}</span></div>
     `;
@@ -277,8 +295,8 @@ async function findPath(kind) {
   const usernames = data.usernames || [];
   const chain = usernames.map(n => `<b>@${n}</b>`).join('<span class="arrow">鈫?/span>');
   const meta = kind === 'bfs'
-    ? `<div class="meta">${data.hops} hops 路 BFS</div>`
-    : `<div class="meta">cost ${data.totalCost.toFixed(4)} 路 Dijkstra</div>`;
+    ? `<div class="meta">${data.hops} hops · BFS</div>`
+    : `<div class="meta">cost ${data.totalCost.toFixed(4)} · Dijkstra</div>`;
   el.innerHTML = chain + meta;
 
   highlightedPath = data.path;
@@ -292,7 +310,7 @@ async function loadSubgraph() {
 
   const nodes = data.nodes.map(n => ({
     id: n.id,
-    label: n.type === 'user' ? '@' + n.label : '馃摪',
+    label: n.type === 'user' ? '@' + n.label : '🐦',
     title: n.type === 'user'
       ? `@${n.label}\nfollowers: ${(n.followers || 0).toLocaleString()}\nPR: ${n.score.toFixed(4)}`
       : `${n.content || ''}\nlikes: ${n.likes}\nPR: ${n.score.toFixed(4)}`,
@@ -349,7 +367,7 @@ function escapeHtml(s) {
 function switchTab(name) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  ['influencers','trending','foryou','bots','ads','louvain'].forEach(n => {
+  ['influencers','trending','foryou','bots','ads','louvain','virus'].forEach(n => {
     document.getElementById('panel-' + n).style.display = n === name ? '' : 'none';
   });
 }
@@ -411,6 +429,83 @@ async function loadLouvain() {
     div.innerHTML = '<div><div class="name">Cluster ' + c.rootId + '</div></div><div class="score">' + c.size + ' users</div>';
     el.appendChild(div);
   });
+}
+
+let virusAnimTimer = null;
+let virusStepData = [];
+let virusCurrentStep = 0;
+
+async function runVirusSim() {
+  if (virusAnimTimer) clearInterval(virusAnimTimer);
+  const patient = document.getElementById('virusPatient').value;
+  const infectivity = document.getElementById('virusInfectivity').value;
+  const recovery = document.getElementById('virusRecovery').value;
+  const status = document.getElementById('virusStatus');
+
+  status.innerHTML = '<div class="empty">running simulation...</div>';
+  const data = await api(`/api/virus/simulate?patientZero=${patient}&infectivity=${infectivity}&recoverySteps=${recovery}&maxSteps=20`);
+  virusStepData = data.steps;
+  virusCurrentStep = 0;
+
+  status.innerHTML = `<div class="item"><div class="name">Total: ${data.totalUsers} users</div><div class="meta">Max infected: ${data.maxInfected} | Recovered: ${data.finalRecovered}</div></div>`;
+
+  // Build graph for visualization (user nodes only)
+  await loadVirusGraph(patient);
+
+  // Start animation
+  virusAnimTimer = setInterval(() => {
+    if (virusCurrentStep >= virusStepData.length) {
+      clearInterval(virusAnimTimer);
+      virusAnimTimer = null;
+      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Simulation complete</div></div>';
+      return;
+    }
+    const step = virusStepData[virusCurrentStep];
+    applyVirusColors(step.states);
+    status.innerHTML += `<div class="item"><div class="name">Step ${step.step}</div><div class="meta">+${step.newlyInfected.length} new | ${step.totalInfected} infected</div></div>`;
+    virusCurrentStep++;
+  }, 600);
+}
+
+function stopVirusAnim() {
+  if (virusAnimTimer) { clearInterval(virusAnimTimer); virusAnimTimer = null; }
+}
+
+async function loadVirusGraph(centerId) {
+  const data = await api(`/api/graph?center=${centerId}&depth=3`);
+  const nodes = data.nodes.filter(n => n.type === 'user').map(n => ({
+    id: n.id,
+    label: '@' + n.label,
+    title: `@${n.label}`,
+    color: { background: '#00BA7C', border: '#00995C' },
+    font: { color: 'white', size: 13 },
+    shape: 'dot',
+    size: 12
+  }));
+
+  const edges = data.edges.filter(e => nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target))
+    .map(e => ({ from: e.source, to: e.target, arrows: 'to', color: { color: '#536471', highlight: '#1D9BF0' }, width: 1 }));
+
+  const container = document.getElementById('network');
+  network = new vis.Network(container, { nodes, edges }, {
+    physics: { solver: 'barnesHut', stabilization: { iterations: 100 } },
+    interaction: { hover: true, dragView: true, zoomView: true }
+  });
+}
+
+function applyVirusColors(states) {
+  if (!network) return;
+  const allNodes = network.body.data.nodes;
+  const updates = [];
+  for (const n of allNodes.get()) {
+    const state = states[String(n.id)] || states[n.id];
+    let color;
+    if (state === 'INFECTED') color = { background: '#F4212E', border: '#C81F2A' };
+    else if (state === 'RECOVERED') color = { background: '#8B98A5', border: '#6B7B8A' };
+    else color = { background: '#00BA7C', border: '#00995C' };
+    updates.push({ id: n.id, color: color });
+  }
+  allNodes.update(updates);
 }
 
 init();

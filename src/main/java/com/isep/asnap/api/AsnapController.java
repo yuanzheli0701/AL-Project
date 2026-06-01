@@ -15,6 +15,8 @@ import com.isep.asnap.feature.GraphQueryEngine;
 import com.isep.asnap.feature.LouvainCommunityDetector;
 import com.isep.asnap.feature.PersonalizedFeedRanker;
 import com.isep.asnap.feature.TrendDetector;
+import com.isep.asnap.feature.VirusPropagator;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -38,6 +40,7 @@ public class AsnapController {
     private final BotDetector botDetector;
     private final AdTargeter adTargeter;
     private final LouvainCommunityDetector louvainDetector;
+    private final VirusPropagator virusPropagator;
 
     public AsnapController(DirectedWeightedGraph graph,
                            ConnectionFinder connectionFinder,
@@ -48,7 +51,8 @@ public class AsnapController {
                            TrendDetector trendDetector,
                            BotDetector botDetector,
                            AdTargeter adTargeter,
-                           LouvainCommunityDetector louvainDetector) {
+                           LouvainCommunityDetector louvainDetector,
+                           VirusPropagator virusPropagator) {
         this.graph = graph;
         this.connectionFinder = connectionFinder;
         this.feedRanker = feedRanker;
@@ -59,6 +63,7 @@ public class AsnapController {
         this.botDetector = botDetector;
         this.adTargeter = adTargeter;
         this.louvainDetector = louvainDetector;
+        this.virusPropagator = virusPropagator;
     }
 
     @GetMapping("/stats")
@@ -231,4 +236,28 @@ public class AsnapController {
         Node n = graph.getNode(id);
         return n instanceof UserNode u ? u.username() : "node#" + id;
     }
-}
+
+    @GetMapping("/virus/simulate")
+    public Map<String, Object> virusSimulate(
+            @RequestParam long patientZero,
+            @RequestParam(defaultValue = "0.3") double infectivity,
+            @RequestParam(defaultValue = "3") int recoverySteps,
+            @RequestParam(defaultValue = "20") int maxSteps) {
+        VirusPropagator.SimulationResult result = virusPropagator.simulate(patientZero, infectivity, recoverySteps, maxSteps);
+        Map<String, Object> m = new HashMap<>();
+        m.put("totalUsers", result.totalUsers());
+        m.put("maxInfected", result.maxInfected());
+        m.put("finalRecovered", result.finalRecovered());
+        m.put("steps", result.steps().stream().map(step -> {
+            Map<String, Object> sm = new HashMap<>();
+            sm.put("step", step.step());
+            sm.put("newlyInfected", step.newlyInfected());
+            sm.put("totalInfected", step.totalInfected());
+            // Send states as map of userId -> state string
+            Map<String, String> stateMap = new HashMap<>();
+            step.states().forEach((id, state) -> stateMap.put(String.valueOf(id), state.name()));
+            sm.put("states", stateMap);
+            return sm;
+        }).toList());
+        return m;
+    }}
