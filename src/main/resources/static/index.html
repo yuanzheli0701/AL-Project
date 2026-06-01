@@ -186,7 +186,8 @@
       <span id="spdVal" style="color:#1D9BF0;">1s</span>
       <div class="row">
         <button onclick="runVirusSim()">Run</button>
-        <button class="secondary" onclick="stopVirusAnim()">Stop</button>
+        <button class="secondary" id="btnStop" onclick="stopVirusAnim()">Stop</button>
+        <button class="secondary" id="btnContinue" onclick="continueVirusAnim()" style="display:none;">Continue</button>
       </div>
       <div id="virusStatus" class="panel" style="min-height: 40px;"><div class="empty">click Run to start</div></div>
       <div class="row" style="margin-top:4px">
@@ -460,6 +461,9 @@ async function runVirusSim() {
   // Build the graph
   loadVirusGraph(patient);
 
+  // Show stop button, hide continue
+  document.getElementById('btnStop').style.display = '';
+  document.getElementById('btnContinue').style.display = 'none';
   // Start step-by-step color animation
   virusCurrentStep = 0;
   var speeds = [5000, 4000, 3000, 2000, 1000];
@@ -469,6 +473,8 @@ async function runVirusSim() {
     if (virusCurrentStep >= virusStepData.length) {
       clearInterval(virusAnimTimer);
       virusAnimTimer = null;
+      document.getElementById('btnStop').style.display = 'none';
+      document.getElementById('btnContinue').style.display = 'none';
       status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
       return;
     }
@@ -483,8 +489,32 @@ function stopVirusAnim() {
   if (virusAnimTimer) {
     clearInterval(virusAnimTimer);
     virusAnimTimer = null;
-    document.getElementById('virusStatus').innerHTML += '<div class="item"><div class="name" style="color:#F4212E;">Animation Stopped</div></div>';
+    document.getElementById('btnStop').style.display = 'none';
+    document.getElementById('btnContinue').style.display = '';
+    document.getElementById('virusStatus').innerHTML += '<div class="item"><div class="name" style="color:#F4212E;">Paused at Step ' + (virusCurrentStep - 1) + '</div></div>';
   }
+}
+
+function continueVirusAnim() {
+  document.getElementById('btnStop').style.display = '';
+  document.getElementById('btnContinue').style.display = 'none';
+  var speeds = [5000, 4000, 3000, 2000, 1000];
+  var spd = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
+  var status = document.getElementById('virusStatus');
+  virusAnimTimer = setInterval(function() {
+    if (virusCurrentStep >= virusStepData.length) {
+      clearInterval(virusAnimTimer);
+      virusAnimTimer = null;
+      document.getElementById('btnStop').style.display = 'none';
+      document.getElementById('btnContinue').style.display = 'none';
+      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
+      return;
+    }
+    var step = virusStepData[virusCurrentStep];
+    applyVirusColors(step.states);
+    status.innerHTML += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
+    virusCurrentStep++;
+  }, spd);
 }
 
 function loadVirusGraph(centerId, callback) {
