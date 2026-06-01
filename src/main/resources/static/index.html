@@ -454,27 +454,23 @@ async function runVirusSim() {
   virusStepData = data.steps;
   virusCurrentStep = 0;
 
-  // Build the graph for visualization first
-  await loadVirusGraph(patient);
-
   // Show header
   status.innerHTML = '<div class="item"><div class="name">Patient Zero: user #' + patient + '</div><div class="meta">Total: ' + data.totalUsers + ' users | Max infected: ' + data.maxInfected + ' | Recovered: ' + data.finalRecovered + '</div></div>';
 
-  // Read speed from slider and start animation
-  const speeds = [5000, 4000, 3000, 2000, 1000];
-  const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
-
-    // Show all steps instantly without animation
-    var summary2 = '';
-    for (var si = 0; si < virusStepData.length; si++) {
-      var step = virusStepData[si];
-      summary2 += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
-    }
-    // Apply final state colors
-    var lastStep = virusStepData[virusStepData.length - 1];
+  // Build graph, then apply colors after stabilization
+  var lastStep = virusStepData[virusStepData.length - 1];
+  loadVirusGraph(patient, function() {
     applyVirusColors(lastStep.states);
-    summary2 += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
-    status.innerHTML += summary2;
+  });
+
+  // Show all steps summary
+  var summary2 = '';
+  for (var si = 0; si < virusStepData.length; si++) {
+    var step = virusStepData[si];
+    summary2 += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
+  }
+  summary2 += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
+  status.innerHTML += summary2;
 }
 
 function stopVirusAnim() {
@@ -485,34 +481,38 @@ function stopVirusAnim() {
   }
 }
 
-async function loadVirusGraph(centerId) {
-  var data = await api('/api/graph?center=' + centerId + '&depth=3');
-  var nodes = [];
-  for (var i = 0; i < data.nodes.length; i++) {
-    var n = data.nodes[i];
-    if (n.type === 'user') {
-      nodes.push({
-        id: n.id,
-        label: '@' + n.label,
-        title: '@' + n.label,
-        color: { background: '#00BA7C', border: '#00995C' },
-        font: { color: 'white', size: 14 },
-        shape: 'dot',
-        size: 14
-      });
+function loadVirusGraph(centerId, callback) {
+  api('/api/graph?center=' + centerId + '&depth=3').then(function(data) {
+    var nodes = [];
+    for (var i = 0; i < data.nodes.length; i++) {
+      var n = data.nodes[i];
+      if (n.type === 'user') {
+        nodes.push({
+          id: n.id,
+          label: '@' + n.label,
+          title: '@' + n.label,
+          color: { background: '#00BA7C', border: '#00995C' },
+          font: { color: 'white', size: 14 },
+          shape: 'dot',
+          size: 14
+        });
+      }
     }
-  }
-  var edges = [];
-  for (var i = 0; i < data.edges.length; i++) {
-    var e = data.edges[i];
-    edges.push({ from: e.source, to: e.target, arrows: 'to', color: { color: '#333', highlight: '#1D9BF0' }, width: 1 });
-  }
-  var container = document.getElementById('network');
-  network = new vis.Network(container, { nodes: nodes, edges: edges }, {
-    physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -800, centralGravity: 0.1, springLength: 200, springConstant: 0.001, damping: 0.5 }, stabilization: { iterations: 500, updateInterval: 50 } },
-    interaction: { hover: true, dragView: true, zoomView: true }
+    var edges = [];
+    for (var i = 0; i < data.edges.length; i++) {
+      var e = data.edges[i];
+      edges.push({ from: e.source, to: e.target, arrows: 'to', color: { color: '#333', highlight: '#1D9BF0' }, width: 1 });
+    }
+    var container = document.getElementById('network');
+    network = new vis.Network(container, { nodes: nodes, edges: edges }, {
+      physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 150, springConstant: 0.01, damping: 0.3 }, stabilization: { iterations: 200 } },
+      interaction: { hover: true, dragView: true, zoomView: true }
+    });
+    network.once('stabilizationIterationsDone', function() {
+      if (callback) callback();
+    });
+    network.fit();
   });
-  network.fit();
 }
 
 function applyVirusColors(states) {
