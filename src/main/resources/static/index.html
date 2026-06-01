@@ -509,7 +509,7 @@ async function loadVirusGraph(centerId) {
   }
   var container = document.getElementById('network');
   network = new vis.Network(container, { nodes: nodes, edges: edges }, {
-    physics: { solver: 'barnesHut', stabilization: { iterations: 200 } },
+    physics: false,
     interaction: { hover: true, dragView: true, zoomView: true }
   });
   network.fit();
