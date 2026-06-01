@@ -464,18 +464,17 @@ async function runVirusSim() {
   const speeds = [5000, 4000, 3000, 2000, 1000];
   const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
 
-  virusAnimTimer = setInterval(function() {
-    if (virusCurrentStep >= virusStepData.length) {
-      clearInterval(virusAnimTimer);
-      virusAnimTimer = null;
-      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Simulation Complete</div></div>';
-      return;
+    // Show all steps instantly without animation
+    var summary2 = '';
+    for (var si = 0; si < virusStepData.length; si++) {
+      var step = virusStepData[si];
+      summary2 += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
     }
-    var step = virusStepData[virusCurrentStep];
-    applyVirusColors(step.states);
-    status.innerHTML += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new infected | total: ' + step.totalInfected + '</div></div>';
-    virusCurrentStep++;
-  }, speed);
+    // Apply final state colors
+    var lastStep = virusStepData[virusStepData.length - 1];
+    applyVirusColors(lastStep.states);
+    summary2 += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
+    status.innerHTML += summary2;
 }
 
 function stopVirusAnim() {
