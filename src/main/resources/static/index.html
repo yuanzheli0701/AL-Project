@@ -337,7 +337,7 @@ async function loadSubgraph() {
 
   const container = document.getElementById('network');
   network = new vis.Network(container, { nodes, edges }, {
-    physics: false,
+    physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -800, centralGravity: 0.1, springLength: 200, springConstant: 0.001, damping: 0.5 }, stabilization: { iterations: 500, updateInterval: 50 } },
     layout: { improvedLayout: true, randomSeed: 42 },
     interaction: { hover: true, tooltipDelay: 100, dragView: true, zoomView: true }
   });
@@ -509,7 +509,7 @@ async function loadVirusGraph(centerId) {
   }
   var container = document.getElementById('network');
   network = new vis.Network(container, { nodes: nodes, edges: edges }, {
-    physics: false,
+    physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -800, centralGravity: 0.1, springLength: 200, springConstant: 0.001, damping: 0.5 }, stabilization: { iterations: 500, updateInterval: 50 } },
     interaction: { hover: true, dragView: true, zoomView: true }
   });
   network.fit();
