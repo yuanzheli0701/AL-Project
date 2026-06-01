@@ -511,7 +511,7 @@ function loadVirusGraph(centerId, callback) {
     }
     var container = document.getElementById('network');
     network = new vis.Network(container, { nodes: nodes, edges: edges }, {
-      physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -1200, centralGravity: 0.2, springLength: 180, springConstant: 0.005, damping: 0.2 }, stabilization: false },
+      physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -3000, centralGravity: 0.5, springLength: 120, springConstant: 0.02, damping: 0.1 }, stabilization: false },
       interaction: { hover: true, dragView: true, zoomView: true }
     });
     network.fit();
