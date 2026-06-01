@@ -182,7 +182,7 @@
       <label>Recovery Steps</label>
       <input id="virusRecovery" type="number" min="1" max="10" value="3">
             <label>Speed</label>
-      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;4s&apos;,&apos;3s&apos;,&apos;2s&apos;,&apos;1.5s&apos;,&apos;1s&apos;][this.value-1]">
+      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;8s&apos;,&apos;6s&apos;,&apos;4s&apos;,&apos;3s&apos;,&apos;2s&apos;][this.value-1]">
       <span id="spdVal" style="color:#1D9BF0;">1s</span>
       <div class="row">
         <button onclick="runVirusSim()">Run</button>
@@ -459,7 +459,7 @@ async function runVirusSim() {
   await loadVirusGraph(patient);
 
   // Start animation
-    const speeds = [4000, 3000, 2000, 1500, 1000];
+    const speeds = [8000, 6000, 4000, 3000, 2000];
   const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
   virusAnimTimer = setInterval(() => {
     if (virusCurrentStep >= virusStepData.length) {
