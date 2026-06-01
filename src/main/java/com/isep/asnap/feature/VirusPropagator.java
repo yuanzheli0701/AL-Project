@@ -30,7 +30,7 @@ public class VirusPropagator {
     public record SimulationResult(List<StepInfo> steps, int totalUsers, int maxInfected, int finalRecovered) {}
 
     private final DirectedWeightedGraph graph;
-    private final Random rng = new Random(42L);
+    private final Random rng = new Random();
 
     public VirusPropagator(DirectedWeightedGraph graph) {
         this.graph = graph;

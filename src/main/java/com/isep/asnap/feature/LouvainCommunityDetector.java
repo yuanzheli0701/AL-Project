@@ -92,7 +92,7 @@ public class LouvainCommunityDetector {
 
             // Shuffle order for fairness
             List<Long> nodeOrder = new ArrayList<>(userIds);
-            Collections.shuffle(nodeOrder, new Random(42L));
+            Collections.shuffle(nodeOrder, new Random());
 
             for (long u : nodeOrder) {
                 long currentComm = community.get(u);

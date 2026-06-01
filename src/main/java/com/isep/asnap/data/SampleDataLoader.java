@@ -23,7 +23,7 @@ import java.util.*;
 @Configuration
 public class SampleDataLoader {
 
-    private static final long SEED = 42L;
+    
     private static final int SAMPLE_SIZE = 40;
     private static final int TWEET_COUNT = 30;
 
@@ -41,7 +41,7 @@ public class SampleDataLoader {
     @Bean
     public DirectedWeightedGraph graph() {
         DirectedWeightedGraph g = new DirectedWeightedGraph();
-        Random rng = new Random(SEED);
+        Random rng = new Random();
 
         // Load all 120 users from JSON
         List<UserRecord> allUsers = loadUsers();
