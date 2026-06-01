@@ -457,20 +457,26 @@ async function runVirusSim() {
   // Show header
   status.innerHTML = '<div class="item"><div class="name">Patient Zero: user #' + patient + '</div><div class="meta">Total: ' + data.totalUsers + ' users | Max infected: ' + data.maxInfected + ' | Recovered: ' + data.finalRecovered + '</div></div>';
 
-  // Build graph, then apply colors after stabilization
-  var lastStep = virusStepData[virusStepData.length - 1];
-  loadVirusGraph(patient, function() {
-    applyVirusColors(lastStep.states);
-  });
+  // Build the graph
+  loadVirusGraph(patient);
 
-  // Show all steps summary
-  var summary2 = '';
-  for (var si = 0; si < virusStepData.length; si++) {
-    var step = virusStepData[si];
-    summary2 += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
-  }
-  summary2 += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
-  status.innerHTML += summary2;
+  // Start step-by-step color animation
+  virusCurrentStep = 0;
+  var speeds = [5000, 4000, 3000, 2000, 1000];
+  var spd = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
+
+  virusAnimTimer = setInterval(function() {
+    if (virusCurrentStep >= virusStepData.length) {
+      clearInterval(virusAnimTimer);
+      virusAnimTimer = null;
+      status.innerHTML += '<div class="item"><div class="name" style="color:#00BA7C;">Complete</div></div>';
+      return;
+    }
+    var step = virusStepData[virusCurrentStep];
+    applyVirusColors(step.states);
+    status.innerHTML += '<div class="item"><div class="name">Step ' + step.step + '</div><div class="meta">+' + step.newlyInfected.length + ' new | total: ' + step.totalInfected + '</div></div>';
+    virusCurrentStep++;
+  }, spd);
 }
 
 function stopVirusAnim() {
@@ -505,13 +511,11 @@ function loadVirusGraph(centerId, callback) {
     }
     var container = document.getElementById('network');
     network = new vis.Network(container, { nodes: nodes, edges: edges }, {
-      physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 150, springConstant: 0.01, damping: 0.3 }, stabilization: { iterations: 200 } },
+      physics: { solver: 'barnesHut', barnesHut: { gravitationalConstant: -1200, centralGravity: 0.2, springLength: 180, springConstant: 0.005, damping: 0.2 }, stabilization: false },
       interaction: { hover: true, dragView: true, zoomView: true }
     });
-    network.once('stabilizationIterationsDone', function() {
-      if (callback) callback();
-    });
     network.fit();
+    if (callback) callback();
   });
 }
 
