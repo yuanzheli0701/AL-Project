@@ -2,6 +2,7 @@ package com.isep.asnap.feature;
 
 import com.isep.asnap.core.DirectedWeightedGraph;
 import com.isep.asnap.core.Edge;
+import com.isep.asnap.core.Node;
 import com.isep.asnap.core.UserNode;
 import org.springframework.stereotype.Service;
 
