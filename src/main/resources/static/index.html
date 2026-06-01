@@ -181,8 +181,13 @@
       <span id="infVal" style="color:#1D9BF0;">0.3</span>
       <label>Recovery Steps</label>
       <input id="virusRecovery" type="number" min="1" max="10" value="3">
-      <button onclick="runVirusSim()">Run Simulation</button>
-      <button class="secondary" onclick="stopVirusAnim()">Stop</button>
+            <label>Speed</label>
+      <input id="virusSpeed" type="range" min="1" max="5" step="1" value="3" oninput="document.getElementById(&apos;spdVal&apos;).textContent=[&apos;Slow&apos;,&apos;1.5s&apos;,&apos;1s&apos;,&apos;0.5s&apos;,&apos;Fast&apos;][this.value-1]">
+      <span id="spdVal" style="color:#1D9BF0;">1s</span>
+      <div class="row">
+        <button onclick="runVirusSim()">Run</button>
+        <button class="secondary" onclick="stopVirusAnim()">Stop</button>
+      </div>
       <div id="virusStatus" class="panel" style="min-height: 40px;"><div class="empty">click Run to start</div></div>
       <div class="row" style="margin-top:4px">
         <span class="pill" style="background:#00BA7C;color:white">S</span>
@@ -454,6 +459,8 @@ async function runVirusSim() {
   await loadVirusGraph(patient);
 
   // Start animation
+    const speeds = [2000, 1500, 1000, 500, 200];
+  const speed = speeds[(document.getElementById('virusSpeed').value || 3) - 1];
   virusAnimTimer = setInterval(() => {
     if (virusCurrentStep >= virusStepData.length) {
       clearInterval(virusAnimTimer);
@@ -465,11 +472,15 @@ async function runVirusSim() {
     applyVirusColors(step.states);
     status.innerHTML += `<div class="item"><div class="name">Step ${step.step}</div><div class="meta">+${step.newlyInfected.length} new | ${step.totalInfected} infected</div></div>`;
     virusCurrentStep++;
-  }, 600);
+  }, 1500);
 }
 
 function stopVirusAnim() {
-  if (virusAnimTimer) { clearInterval(virusAnimTimer); virusAnimTimer = null; }
+  if (virusAnimTimer) {
+    clearInterval(virusAnimTimer);
+    virusAnimTimer = null;
+    document.getElementById('virusStatus').innerHTML += '<div class="item"><div class="name" style="color:#F4212E;">Stopped</div></div>';
+  }
 }
 
 async function loadVirusGraph(centerId) {
