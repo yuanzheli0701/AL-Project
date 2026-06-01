@@ -515,6 +515,7 @@ function loadVirusGraph(centerId, callback) {
       interaction: { hover: true, dragView: true, zoomView: true }
     });
     network.fit();
+    setTimeout(function() { network.setOptions({ physics: false }); }, 300000);
     if (callback) callback();
   });
 }
